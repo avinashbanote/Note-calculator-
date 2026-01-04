@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProCalc | Interactive Workspace</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap');
+
+        :root {
+            --primary: #6366f1;
+            --accent: #f472b6;
+            --bg-gradient: linear-gradient(135deg, #eef2ff 0%, #fdf2f8 50%, #fffbeb 100%);
+            --glass: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.5);
+            --text: #1e293b;
+        }
+
+        * {
+            margin: 0; padding: 0; box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-gradient);
+            padding: 20px;
+        }
+
+        .main-workspace {
+            display: grid;
+            grid-template-columns: 350px 320px 280px;
+            gap: 25px;
+            max-width: 1100px;
+            width: 100%;
+        }
+
+        /* Glassmorphism Card Style */
+        .glass-card {
+            background: var(--glass);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 28px;
+            padding: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.04);
+            display: flex;
+            flex-direction: column;
+        }
+
+        h3 { 
+            font-size: 1.1rem; 
+            color: var(--text); 
+            margin-bottom: 18px; 
+            font-weight: 600; 
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Calculator Styles */
+        .display-container {
+            background: rgba(255,255,255,0.6);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: right;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        #prev-op { font-size: 0.85rem; color: #94a3b8; min-height: 1.2rem; margin-bottom: 4px; }
+        #display { 
+            width: 100%; border: none; background: transparent; 
+            font-size: 2.4rem; color: var(--text); text-align: right; font-weight: 600;
+            outline: none;
+        }
+
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        
+        button {
+            border: none; border-radius: 16px; height: 58px; cursor: pointer;
+            font-size: 1.1rem; font-weight: 500; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            background: rgba(255,255,255,0.9); color: var(--text);
+        }
+
+        button:hover { 
+            transform: translateY(-3px); 
+            background: #fff; 
+            box-shadow: 0 6px 15px rgba(99, 102, 241, 0.1); 
+        }
+
+        button:active { transform: scale(0.92); }
+
+        .btn-op { background: #eff6ff; color: var(--primary); font-weight: 600; }
+        .btn-action { background: #fff1f2; color: #f43f5e; }
+        .btn-equal { background: var(--primary); color: white; grid-column: span 2; }
+        .btn-equal:hover { background: #4f46e5; color: white; }
+
+        /* Notepad & Canvas */
+        #notepad {
+            width: 100%; height: 200px; border: none; background: rgba(255,255,255,0.5);
+            border-radius: 16px; padding: 15px; font-size: 0.95rem; resize: none; 
+            margin-bottom: 15px; outline: none; border: 1px solid transparent;
+            transition: border 0.3s;
+        }
+        #notepad:focus { border: 1px solid var(--primary); }
+
+        .canvas-wrapper {
+            background: white; border-radius: 16px; overflow: hidden; position: relative;
+            height: 140px; border: 1px solid #f1f5f9;
+        }
+
+        #drawingCanvas { width: 100%; height: 100%; cursor: crosshair; }
+
+        /* History Section */
+        .history-list {
+            flex-grow: 1;
+            overflow-y: auto; 
+            padding-right: 5px;
+        }
+
+        .history-item {
+            padding: 12px; 
+            background: rgba(255,255,255,0.4);
+            border-radius: 12px;
+            margin-bottom: 10px;
+            font-size: 0.85rem;
+            border-left: 4px solid var(--primary);
+            position: relative;
+            transition: 0.2s;
+        }
+
+        .history-item:hover { background: rgba(255,255,255,0.8); }
+
+        .history-item .copy-btn {
+            position: absolute; right: 8px; top: 50%;
+            transform: translateY(-50%); font-size: 0.7rem;
+            padding: 4px 8px; border-radius: 6px; background: var(--primary);
+            color: white; opacity: 0; transition: 0.2s;
+        }
+
+        .history-item:hover .copy-btn { opacity: 1; }
+
+        /* Responsive */
+        @media (max-width: 1000px) {
+            .main-workspace { grid-template-columns: 1fr; max-width: 400px; }
+            body { padding: 40px 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="main-workspace">
+    <div class="glass-card">
+        <h3>🔢 Smart Calculator</h3>
+        <div class="display-container">
+            <div id="prev-op"></div>
+            <input type="text" id="display" readonly value="0">
+        </div>
+        <div class="grid-4">
+            <button class="btn-action" onclick="clearDisplay()">AC</button>
+            <button class="btn-op" onclick="appendOp('**')">^</button>
+            <button class="btn-op" onclick="appendOp('%')">%</button>
+            <button class="btn-op" onclick="deleteLast()">⌫</button>
+            
+            <button onclick="appendNum('7')">7</button>
+            <button onclick="appendNum('8')">8</button>
+            <button onclick="appendNum('9')">9</button>
+            <button class="btn-op" onclick="appendOp('/')">÷</button>
+
+            <button onclick="appendNum('4')">4</button>
+            <button onclick="appendNum('5')">5</button>
+            <button onclick="appendNum('6')">6</button>
+            <button class="btn-op" onclick="appendOp('*')">×</button>
+
+            <button onclick="appendNum('1')">1</button>
+            <button onclick="appendNum('2')">2</button>
+            <button onclick="appendNum('3')">3</button>
+            <button class="btn-op" onclick="appendOp('-')">-</button>
+
+            <button onclick="appendNum('0')">0</button>
+            <button onclick="appendNum('.')">.</button>
+            <button class="btn-equal" onclick="calculate()">=</button>
+            <button class="btn-op" onclick="appendOp('+')">+</button>
+        </div>
+    </div>
+
+    <div class="glass-card">
+        <h3>📝 Workspace</h3>
+        <textarea id="notepad" placeholder="Start typing your notes..."></textarea>
+        <div class="canvas-wrapper">
+            <canvas id="drawingCanvas"></canvas>
+        </div>
+        <div class="grid-4" style="margin-top: 15px;">
+            <button style="grid-column: span 2; font-size: 0.8rem;" onclick="clearCanvas()">Clear Sketch</button>
+            <button style="grid-column: span 2; font-size: 0.8rem; background: var(--accent); color:white;" onclick="saveNotes()">Save Notes</button>
+        </div>
+    </div>
+
+    <div class="glass-card">
+        <h3>⏳ History</h3>
+        <div id="history" class="history-list">
+            </div>
+        <button style="margin-top:10px; font-size: 0.8rem; height: 35px;" onclick="clearHistory()">Clear History</button>
+    </div>
+</div>
+
+<script>
+    // --- UI Logic ---
+    let display = document.getElementById('display');
+    let prevOp = document.getElementById('prev-op');
+    let historyBox = document.getElementById('history');
+    let notepad = document.getElementById('notepad');
+
+    // --- Calculator Functions ---
+    function appendNum(n) {
+        if (display.value === '0') display.value = n;
+        else display.value += n;
+    }
+
+    function appendOp(op) {
+        let lastChar = display.value.slice(-1);
+        if(['+','-','*','/','%'].includes(lastChar)) return; 
+        display.value += op;
+    }
+
+    function clearDisplay() {
+        display.value = '0';
+        prevOp.innerText = '';
+    }
+
+    function deleteLast() {
+        display.value = display.value.slice(0, -1) || '0';
+    }
+
+    function calculate() {
+        try {
+            let expression = display.value;
+            // Clean expression for power operations
+            let result = eval(expression);
+            prevOp.innerText = expression + " =";
+            display.value = result;
+            
+            addToHistory(expression, result);
+        } catch {
+            display.value = "Error";
+            setTimeout(clearDisplay, 1500);
+        }
+    }
+
+    function addToHistory(exp, res) {
+        let item = document.createElement('div');
+        item.className = 'history-item';
+        item.innerHTML = `
+            <div style="color:#64748b">${exp}</div>
+            <strong style="color:var(--primary); font-size: 1rem;">${res}</strong>
+            <button class="copy-btn" onclick="copyToNote('${res}')">Copy</button>
+        `;
+        historyBox.prepend(item);
+    }
+
+    function copyToNote(val) {
+        notepad.value += ` [Result: ${val}] `;
+    }
+
+    function clearHistory() {
+        historyBox.innerHTML = '';
+    }
+
+    // --- KEYBOARD FIX: This solves your dual-typing problem ---
+    window.addEventListener('keydown', (e) => {
+        // If the user is inside the Notepad, stop the calculator from listening
+        if (document.activeElement === notepad) return;
+
+        if (e.key >= 0 && e.key <= 9) appendNum(e.key);
+        if (['+', '-', '*', '/', '%'].includes(e.key)) appendOp(e.key);
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            calculate();
+        }
+        if (e.key === 'Backspace') deleteLast();
+        if (e.key === 'Escape') clearDisplay();
+    });
+
+    // --- Sketch Pad Logic ---
+    const canvas = document.getElementById('drawingCanvas');
+    const ctx = canvas.getContext('2d');
+    let drawing = false;
+
+    function setupCanvas() {
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+        ctx.strokeStyle = '#6366f1';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+    }
+
+    setupCanvas();
+    window.onresize = setupCanvas;
+
+    function startDraw(e) {
+        drawing = true;
+        draw(e);
+    }
+    function stopDraw() {
+        drawing = false;
+        ctx.beginPath();
+    }
+    function draw(e) {
+        if (!drawing) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
+        const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
+        ctx.lineTo(x, y);
+        ctx.stroke();
+    }
+
+    canvas.addEventListener('mousedown', startDraw);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDraw);
+    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDraw(e); });
+    canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); });
+    canvas.addEventListener('touchend', stopDraw);
+
+    function clearCanvas() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // --- Storage ---
+    function saveNotes() {
+        localStorage.setItem('pro_notes', notepad.value);
+        alert('Notes saved locally!');
+    }
+
+    window.onload = () => {
+        notepad.value = localStorage.getItem('pro_notes') || '';
+    };
+</script>
+
+</body>
+</html>
